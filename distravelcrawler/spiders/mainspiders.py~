@@ -1,0 +1,45 @@
+from scrapy_redis.spiders import RedisSpider
+import os
+from os.path import exists
+import requests
+import re
+import urllib
+
+if not exists('trip_data'):
+    os.mkdir('trip_data')
+class MySpider(RedisSpider):
+    name = 'mainspider_redis'
+    redis_key = 'disspider:start_urls'
+
+    def ctrip_parser(self, response):
+        print 'ctrip is not implemented'
+
+    def qunar_parser(self, response):
+        url = response.url
+        place = re.findall('&fhLimit=0%2C20&q=(.*?)&d=', url)[0]
+        place = urllib.unquote(place).decode('utf-8')
+        print place
+        mainjson = requests.get(response.url).json()
+        groupcount = mainjson['data']['limit']['groupCount']
+        writefile = open('trip_data/' + place, 'w')
+        page = 0
+        count = 1
+        while page < groupcount:
+            temp_re = requests.get(url)
+            mainjson = temp_re.json()
+            maindata = mainjson['data']['list']['results']
+            for littlejson in maindata:
+                writefile.write(str(count) + '.' + littlejson['title'].encode('utf-8') + '\n')
+            url = url.replace('lm='+ str(page*20)+'%2C20', 'lm=' + str((page+1)*20)+ '%2C20')
+            print 'here is the url' + url
+            page = page + 1	
+            count = count + 1
+            
+    def parse(self, response):
+        print response.url + ' is being crawled'
+        if 'dujia.qunar.com' in response.url:
+            self.qunar_parser(response)
+        elif 'ctrip.com' in response.url:
+            self.ctrip_parser(response)
+        else:
+            print 'unknown type of url'
